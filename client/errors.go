@@ -12,4 +12,6 @@ var (
 	ErrReadingResponseBody = errors.New("error reading response body")
 
 	ErrUnmarshallingJSON = errors.New("error unmarshalling JSON")
+
+	ErrUnsupportedContentType = errors.New("error: invalid content type")
 )
