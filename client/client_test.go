@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSetupEnvironment(t *testing.T) {
@@ -108,6 +109,58 @@ func TestGetDateTime(t *testing.T) {
 		_, err := GetDateTime("gin", "application/json")
 		if err == nil {
 			t.Fatal("Expected error for failed server response, got none")
+		}
+	})
+
+	t.Run("Retry mechanism - Success after failures", func(t *testing.T) {
+		attempts := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			if attempts <= 2 {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			io.WriteString(w, `{"datetime": "2024-09-19T12:34:56Z"}`)
+		}))
+		defer server.Close()
+
+		serverURL := server.URL[:strings.LastIndex(server.URL, ":")]
+		serverPort := server.URL[strings.LastIndex(server.URL, ":")+1:]
+
+		SetupEnv(serverURL, serverPort, serverPort)
+		dateTime, err := GetDateTime("other", "application/json")
+		if err != nil {
+			t.Fatalf("Expected no error after retries, got %v", err)
+		}
+		if dateTime != "2024-09-19T12:34:56Z" {
+			t.Errorf("Expected datetime to be '2024-09-19T12:34:56Z', got %s", dateTime)
+		}
+		if attempts != 3 {
+			t.Errorf("Expected 3 attempts, got %d", attempts)
+		}
+	})
+
+	t.Run("Retry mechanism - Failure after max retries", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		serverURL := server.URL[:strings.LastIndex(server.URL, ":")]
+		serverPort := server.URL[strings.LastIndex(server.URL, ":")+1:]
+
+		SetupEnv(serverURL, serverPort, serverPort)
+		start := time.Now()
+		_, err := GetDateTime("other", "application/json")
+		duration := time.Since(start)
+
+		if err == nil {
+			t.Fatal("Expected error after max retries, got none")
+		}
+
+		if duration < 27*time.Second || duration > 32*time.Second {
+			t.Errorf("Expected retry duration to be approximately 30 seconds, got %v", duration)
 		}
 	})
 }
