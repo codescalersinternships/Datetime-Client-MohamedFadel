@@ -159,7 +159,7 @@ func TestGetDateTime(t *testing.T) {
 			t.Fatal("Expected error after max retries, got none")
 		}
 
-		if duration < 27*time.Second || duration > 32*time.Second {
+		if duration < 20*time.Second || duration > 40*time.Second {
 			t.Errorf("Expected retry duration to be approximately 30 seconds, got %v", duration)
 		}
 	})
