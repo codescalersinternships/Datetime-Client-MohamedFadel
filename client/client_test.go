@@ -35,7 +35,10 @@ func mockServer(t *testing.T, contentType string, responseBody string, statusCod
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", contentType)
 		w.WriteHeader(statusCode)
-		io.WriteString(w, responseBody)
+		_, err := io.WriteString(w, responseBody)
+		if err != nil {
+			t.Errorf("Error writing mock response: %v", err)
+		}
 	}))
 }
 
@@ -121,7 +124,10 @@ func TestGetDateTime(t *testing.T) {
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			io.WriteString(w, `{"datetime": "2024-09-19T12:34:56Z"}`)
+			_, err := io.WriteString(w, `{"datetime": "2024-09-19T12:34:56Z"}`)
+			if err != nil {
+				t.Errorf("Error writing retry response: %v", err)
+			}
 		}))
 		defer server.Close()
 

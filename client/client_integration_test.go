@@ -79,9 +79,15 @@ func TestIntegrationGetDateTime(t *testing.T) {
 
 				if tt.serverResponse != nil {
 					if tt.contentType == "application/json" {
-						json.NewEncoder(w).Encode(tt.serverResponse)
+						err := json.NewEncoder(w).Encode(tt.serverResponse)
+						if err != nil {
+							t.Errorf("Error encoding JSON: %v", err)
+						}
 					} else {
-						w.Write([]byte(tt.serverResponse.(string)))
+						_, err := w.Write([]byte(tt.serverResponse.(string)))
+						if err != nil {
+							t.Errorf("Error writing response: %v", err)
+						}
 					}
 				}
 			}))
