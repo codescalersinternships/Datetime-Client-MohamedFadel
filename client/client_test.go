@@ -1,35 +1,12 @@
 package client
 
 import (
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"strings"
 	"testing"
 	"time"
 )
-
-func TestSetupEnvironment(t *testing.T) {
-	testURL := "http://testserver"
-	testPort := "8080"
-	testPortGin := "9090"
-
-	SetupEnv(testURL, testPort, testPortGin)
-
-	if os.Getenv("SERVER_URL") != testURL {
-		t.Errorf("SERVER_URL not set correctly. Expected %s, got %s", testURL, os.Getenv("SERVER_URL"))
-	}
-
-	if os.Getenv("SERVER_PORT") != testPort {
-		t.Errorf("SERVER_PORT not set correctly. Expected %s, got %s", testPort, os.Getenv("SERVER_PORT"))
-	}
-
-	if os.Getenv("SERVER_PORT_GIN") != testPortGin {
-		t.Errorf("SERVER_PORT_GIN not set correctly. Expected %s, got %s", testPortGin, os.Getenv("SERVER_PORT_GIN"))
-	}
-}
 
 func mockServer(t *testing.T, contentType string, responseBody string, statusCode int) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -52,15 +29,9 @@ func TestGetDateTime(t *testing.T) {
 	serverFail := mockServer(t, "application/json", ``, http.StatusInternalServerError)
 	defer serverFail.Close()
 
-	serverURLPlain := serverPlain.URL[:strings.LastIndex(serverPlain.URL, ":")]
-	serverPortPlain := serverPlain.URL[strings.LastIndex(serverPlain.URL, ":")+1:]
-
-	serverURLJSON := serverJSON.URL[:strings.LastIndex(serverJSON.URL, ":")]
-	serverPortJSON := serverJSON.URL[strings.LastIndex(serverJSON.URL, ":")+1:]
-
 	t.Run("Success - Plain text response", func(t *testing.T) {
-		SetupEnv(serverURLPlain, serverPortPlain, serverPortPlain)
-		dateTime, err := GetDateTime("other", "text/plain")
+		client := NewDateTimeClient(serverPlain.URL)
+		dateTime, err := client.GetDateTime("text/plain")
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -70,8 +41,8 @@ func TestGetDateTime(t *testing.T) {
 	})
 
 	t.Run("Success - JSON response", func(t *testing.T) {
-		SetupEnv(serverURLJSON, serverPortJSON, serverPortJSON)
-		dateTime, err := GetDateTime("gin", "application/json")
+		client := NewDateTimeClient(serverJSON.URL)
+		dateTime, err := client.GetDateTime("application/json")
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -80,36 +51,25 @@ func TestGetDateTime(t *testing.T) {
 		}
 	})
 
-	t.Run("Error - Missing SERVER_URL", func(t *testing.T) {
-		os.Setenv("SERVER_URL", "")
-		_, err := GetDateTime("gin", "application/json")
-		if err == nil {
-			t.Fatal("Expected error for missing SERVER_URL, got none")
-		}
-		os.Setenv("SERVER_URL", serverURLJSON)
-	})
-
 	t.Run("Error - Invalid Content-Type", func(t *testing.T) {
-		SetupEnv(serverURLPlain, serverPortPlain, serverPortPlain)
-		_, err := GetDateTime("other", "unsupported/type")
+		client := NewDateTimeClient(serverPlain.URL)
+		_, err := client.GetDateTime("unsupported/type")
 		if err == nil {
 			t.Fatal("Expected error for unsupported content type, got none")
 		}
 	})
 
 	t.Run("Error - HTTP request failure", func(t *testing.T) {
-		SetupEnv("", "invalidPort", "invalidPort")
-		_, err := GetDateTime("other", "text/plain")
-		if !errors.Is(err, ErrURLandPortMustBeSet) {
-			t.Fatalf("Expected ErrURLandPortMustBeSet, got %v", err)
+		client := NewDateTimeClient("http://invalidurl:1234")
+		_, err := client.GetDateTime("text/plain")
+		if err == nil {
+			t.Fatal("Expected error for invalid URL, got none")
 		}
 	})
 
 	t.Run("Error - Failed server response", func(t *testing.T) {
-		serverURLFail := serverFail.URL[:strings.LastIndex(serverFail.URL, ":")]
-		serverPortFail := serverFail.URL[strings.LastIndex(serverFail.URL, ":")+1:]
-		SetupEnv(serverURLFail, serverPortFail, serverPortFail)
-		_, err := GetDateTime("gin", "application/json")
+		client := NewDateTimeClient(serverFail.URL)
+		_, err := client.GetDateTime("application/json")
 		if err == nil {
 			t.Fatal("Expected error for failed server response, got none")
 		}
@@ -131,11 +91,8 @@ func TestGetDateTime(t *testing.T) {
 		}))
 		defer server.Close()
 
-		serverURL := server.URL[:strings.LastIndex(server.URL, ":")]
-		serverPort := server.URL[strings.LastIndex(server.URL, ":")+1:]
-
-		SetupEnv(serverURL, serverPort, serverPort)
-		dateTime, err := GetDateTime("other", "application/json")
+		client := NewDateTimeClient(server.URL)
+		dateTime, err := client.GetDateTime("application/json")
 		if err != nil {
 			t.Fatalf("Expected no error after retries, got %v", err)
 		}
@@ -153,12 +110,9 @@ func TestGetDateTime(t *testing.T) {
 		}))
 		defer server.Close()
 
-		serverURL := server.URL[:strings.LastIndex(server.URL, ":")]
-		serverPort := server.URL[strings.LastIndex(server.URL, ":")+1:]
-
-		SetupEnv(serverURL, serverPort, serverPort)
+		client := NewDateTimeClient(server.URL)
 		start := time.Now()
-		_, err := GetDateTime("other", "application/json")
+		_, err := client.GetDateTime("application/json")
 		duration := time.Since(start)
 
 		if err == nil {

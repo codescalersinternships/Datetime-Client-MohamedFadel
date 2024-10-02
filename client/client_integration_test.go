@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 )
@@ -12,7 +11,6 @@ import (
 func TestIntegrationGetDateTime(t *testing.T) {
 	tests := []struct {
 		name               string
-		serverType         string
 		contentType        string
 		serverResponse     interface{}
 		expectedStatusCode int
@@ -21,7 +19,6 @@ func TestIntegrationGetDateTime(t *testing.T) {
 	}{
 		{
 			name:               "Successful JSON response",
-			serverType:         "standard",
 			contentType:        "application/json",
 			serverResponse:     map[string]string{"datetime": "2024-09-20T14:30:00Z"},
 			expectedStatusCode: http.StatusOK,
@@ -30,7 +27,6 @@ func TestIntegrationGetDateTime(t *testing.T) {
 		},
 		{
 			name:               "Successful plain text response",
-			serverType:         "gin",
 			contentType:        "text/plain",
 			serverResponse:     "2024-09-20T14:30:00Z",
 			expectedStatusCode: http.StatusOK,
@@ -39,7 +35,6 @@ func TestIntegrationGetDateTime(t *testing.T) {
 		},
 		{
 			name:               "Server error",
-			serverType:         "standard",
 			contentType:        "application/json",
 			serverResponse:     nil,
 			expectedStatusCode: http.StatusInternalServerError,
@@ -48,7 +43,6 @@ func TestIntegrationGetDateTime(t *testing.T) {
 		},
 		{
 			name:               "Invalid JSON response",
-			serverType:         "standard",
 			contentType:        "application/json",
 			serverResponse:     "invalid json",
 			expectedStatusCode: http.StatusOK,
@@ -57,7 +51,6 @@ func TestIntegrationGetDateTime(t *testing.T) {
 		},
 		{
 			name:               "Timeout",
-			serverType:         "gin",
 			contentType:        "application/json",
 			serverResponse:     nil,
 			expectedStatusCode: http.StatusOK,
@@ -93,15 +86,8 @@ func TestIntegrationGetDateTime(t *testing.T) {
 			}))
 			defer server.Close()
 
-			serverURL := server.URL
-			hostPort := strings.TrimPrefix(serverURL, "http://")
-			parts := strings.Split(hostPort, ":")
-			host := parts[0]
-			port := parts[1]
-
-			SetupEnv("http://"+host, port, port)
-
-			result, err := GetDateTime(tt.serverType, tt.contentType)
+			client := NewDateTimeClient(server.URL)
+			result, err := client.GetDateTime(tt.contentType)
 
 			if tt.expectedError && err == nil {
 				t.Errorf("Expected an error, but got none")

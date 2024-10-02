@@ -7,9 +7,10 @@ on:
   push:
     branches:
       - main
+      - development
 
 jobs:
-  golangci:
+  lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:

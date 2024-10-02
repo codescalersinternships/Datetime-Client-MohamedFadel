@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -22,21 +21,14 @@ func init() {
 	}
 }
 
-// SetupEnv sets up the environment variables for the datetime client.
-// It takes the server URL, standard server port, and Gin server port as parameters.
-//
-// Parameters:
-//   - serverURL: The base URL of the datetime server (e.g., "http://localhost")
-//   - serverPort: The port for the standard server
-//   - serverPortGin: The port for the Gin server
-func SetupEnv(serverURL, serverPort, serverPortGin string) {
-	os.Setenv("SERVER_URL", serverURL)
-	os.Setenv("SERVER_PORT", serverPort)
-	os.Setenv("SERVER_PORT_GIN", serverPortGin)
-	logger.Info("Environment variables set",
-		zap.String("SERVER_URL", serverURL),
-		zap.String("SERVER_PORT", serverPort),
-		zap.String("SERVER_PORT_GIN", serverPortGin))
+type DateTimeClient struct {
+	ServerURL string
+}
+
+func NewDateTimeClient(serverURL string) *DateTimeClient {
+	return &DateTimeClient{
+		ServerURL: serverURL,
+	}
 }
 
 // GetDateTime retrieves the current date and time from the specified server.
@@ -51,43 +43,25 @@ func SetupEnv(serverURL, serverPort, serverPortGin string) {
 //   - error: An error if the request fails or the response is invalid
 //
 // The function uses an exponential backoff retry mechanism for failed requests.
-func GetDateTime(serverType, contentType string) (string, error) {
-	serverURL := os.Getenv("SERVER_URL")
-	var serverPort string
-	if serverType == "gin" {
-		serverPort = os.Getenv("SERVER_PORT_GIN")
-	} else {
-		serverPort = os.Getenv("SERVER_PORT")
+func (c *DateTimeClient) GetDateTime(contentType string) (string, error) {
+	if contentType != "application/json" && contentType != "text/plain" {
+		logger.Error("Unsupported content type", zap.String("contentType", contentType))
+		return "", fmt.Errorf("%w: %s", ErrUnsupportedContentType, contentType)
 	}
-
-	if serverURL == "" || serverPort == "" {
-		logger.Error("Missing environment variables",
-			zap.String("SERVER_URL", serverURL),
-			zap.String("SERVER_PORT", serverPort))
-		return "", fmt.Errorf("%w", ErrURLandPortMustBeSet)
-	}
-
-	url := fmt.Sprintf("%s:%s/datetime", serverURL, serverPort)
 
 	logger.Info("Preparing to fetch datetime",
-		zap.String("url", url),
-		zap.String("serverType", serverType),
+		zap.String("url", c.ServerURL),
 		zap.String("contentType", contentType))
 
 	var result string
 	operation := func() error {
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequest("GET", c.ServerURL, nil)
 		if err != nil {
 			logger.Error("Failed to create request", zap.Error(err))
 			return fmt.Errorf("%w", ErrCreatingRequest)
 		}
 
 		req.Header.Set("Accept", contentType)
-
-		if contentType != "application/json" && contentType != "text/plain" {
-			logger.Error("Unsupported content type", zap.String("contentType", contentType))
-			return fmt.Errorf("%w: %s", ErrUnsupportedContentType, contentType)
-		}
 
 		client := &http.Client{
 			Timeout: 10 * time.Second,

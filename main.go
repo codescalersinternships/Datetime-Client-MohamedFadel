@@ -1,35 +1,24 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/codescalersinternships/Datetime-Client-MohamedFadel/client"
 )
 
 func main() {
-	serverURL := os.Getenv("SERVER_URL")
-	serverPort := os.Getenv("SERVER_PORT")
-	serverPortGin := os.Getenv("SERVER_PORT_GIN")
+	serverURL := flag.String("url", "http://localhost:8000", "Server URL")
+	contentType := flag.String("type", "application/json", "Content type (application/json or text/plain)")
+	flag.Parse()
 
-	if serverURL == "" || serverPort == "" || serverPortGin == "" {
-		log.Fatal("SERVER_URL, SERVER_PORT, and SERVER_PORT_GIN must be set")
+	dateTimeClient := client.NewDateTimeClient(*serverURL)
+
+	dateTime, err := dateTimeClient.GetDateTime(*contentType)
+	if err != nil {
+		log.Fatalf("Error fetching datetime: %v\n", err)
 	}
 
-	client.SetupEnv(serverURL, serverPort, serverPortGin)
-
-	serverTypes := []string{"standard", "gin"}
-	contentTypes := []string{"application/json", "text/plain"}
-
-	for _, serverType := range serverTypes {
-		for _, contentType := range contentTypes {
-			dateTime, err := client.GetDateTime(serverType, contentType)
-			if err != nil {
-				log.Printf("Error fetching datetime from %s with %s: %v\n", serverType, contentType, err)
-				continue
-			}
-			fmt.Printf("Response from %s server with %s: %s\n", serverType, contentType, dateTime)
-		}
-	}
+	fmt.Printf("Response from server: %s\n", dateTime)
 }

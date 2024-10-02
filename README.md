@@ -1,7 +1,6 @@
-
 # DateTime Client
 
-This project implements a client for fetching date and time information from two different server types: a standard HTTP server and a Gin server. The client supports both JSON and plain text responses.
+This project implements a client for fetching date and time information from any server exposing a datetime API. The client supports both JSON and plain text responses.
 
 ## Table of Contents
 
@@ -9,7 +8,6 @@ This project implements a client for fetching date and time information from two
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Configuration](#configuration)
 - [API](#api)
 - [Error Handling](#error-handling)
 - [Docker Support](#docker-support)
@@ -17,9 +15,9 @@ This project implements a client for fetching date and time information from two
 
 ## Features
 
-- Fetch date and time from standard HTTP and Gin servers
+- Fetch date and time from any server exposing a datetime API
 - Support for JSON and plain text response formats
-- Environment variable configuration
+- Command-line flag configuration
 - Exponential backoff retry mechanism
 - Logging with Zap logger
 - Docker support for easy deployment
@@ -46,38 +44,26 @@ This project implements a client for fetching date and time information from two
 
 ## Usage
 
-To use the DateTime Client, you need to set up the environment variables and then run the main program:
+To use the DateTime Client, run the main program with the following flags:
 
-```go
-client.SetupEnv("http://localhost", "8000", "9000")
-dateTime, err := client.GetDateTime("standard", "application/json")
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Println(dateTime)
+```
+go run main.go -url=http://localhost:8000 -type=application/json
 ```
 
-## Configuration
-
-The client requires the following environment variables to be set:
-
-- `SERVER_URL`: The base URL of the datetime server (e.g., "http://localhost")
-- `SERVER_PORT`: The port for the standard server
-- `SERVER_PORT_GIN`: The port for the Gin server
-
-You can set these variables using the `SetupEnv` function or by setting them directly in your environment.
+Flags:
+- `-url`: The URL of the datetime server (default: "http://localhost:8080")
+- `-type`: The desired content type for the response ("application/json" or "text/plain", default: "application/json")
 
 ## API
 
-### `SetupEnv(serverURL, serverPort, serverPortGin string)`
+### `NewDateTimeClient(serverURL string) *DateTimeClient`
 
-Sets up the environment variables for the datetime client.
+Creates a new DateTimeClient with the specified server URL.
 
-### `GetDateTime(serverType, contentType string) (string, error)`
+### `(c *DateTimeClient) GetDateTime(contentType string) (string, error)`
 
-Retrieves the current date and time from the specified server.
+Retrieves the current date and time from the server.
 
-- `serverType`: The type of server to query ("standard" or "gin")
 - `contentType`: The desired content type for the response ("application/json" or "text/plain")
 
 Returns the retrieved datetime as a string and an error if the request fails.
@@ -86,12 +72,11 @@ Returns the retrieved datetime as a string and an error if the request fails.
 
 The client defines several custom errors in `errors.go`:
 
-- `ErrURLandPortMustBeSet`: Returned when required environment variables are not set
+- `ErrUnsupportedContentType`: Returned when an unsupported content type is specified
 - `ErrCreatingRequest`: Returned when there's an error creating the HTTP request
 - `ErrMakingRequest`: Returned when there's an error making the HTTP request
 - `ErrReadingResponseBody`: Returned when there's an error reading the response body
 - `ErrUnmarshallingJSON`: Returned when there's an error unmarshalling JSON response
-- `ErrUnsupportedContentType`: Returned when an unsupported content type is specified
 
 ## Docker Support
 
@@ -99,8 +84,10 @@ The project includes a Dockerfile for containerization. To build and run the Doc
 
 ```bash
 docker build -t datetime-client .
-docker run --network host -e SERVER_URL=http://localhost -e SERVER_PORT=8000 -e SERVER_PORT_GIN=9000 datetime-client
+docker run datetime-client -url=http://host.docker.internal:8000 -type=application/json
 ```
+
+Note: Use `host.docker.internal` to access the host machine's localhost from within the Docker container.
 
 ## Makefile Commands
 

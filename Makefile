@@ -7,13 +7,16 @@ GOMOD=$(GOCMD) mod
 BINARY_NAME=datetime-client
 DOCKER_IMAGE_NAME=datetime-client-image
 
+SERVER_URL ?= http://localhost:8000
+CONTENT_TYPE ?= application/json
+
 all: deps fmt lint build test docker-build docker-run
 
 build:
 	$(GOBUILD) -o $(BINARY_NAME) -v
 
 test:
-	$(GOTEST) -v ./client...
+	$(GOTEST) -v ./...
 
 clean:
 	$(GOCLEAN)
@@ -21,7 +24,7 @@ clean:
 
 run:
 	$(GOBUILD) -o $(BINARY_NAME) -v ./...
-	./$(BINARY_NAME)
+	./$(BINARY_NAME) -url=$(SERVER_URL) -type=$(CONTENT_TYPE)
 
 deps:
 	$(GOMOD) download
@@ -36,6 +39,6 @@ docker-build:
 	docker build -t $(DOCKER_IMAGE_NAME) .
 
 docker-run:
-	docker run --network host -e SERVER_URL=$(SERVER_URL) -e SERVER_PORT=$(SERVER_PORT) -e SERVER_PORT_GIN=$(SERVER_PORT_GIN) $(DOCKER_IMAGE_NAME)
+	docker run --network host $(DOCKER_IMAGE_NAME) -url=$(SERVER_URL) -type=$(CONTENT_TYPE)
 
 .PHONY: all build test clean run deps fmt lint docker-build docker-run
